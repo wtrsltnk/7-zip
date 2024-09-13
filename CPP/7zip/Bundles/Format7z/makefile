@@ -1,13 +1,14 @@
 PROG = 7za.dll
 DEF_FILE = ../../Archive/Archive2.def
 CFLAGS = $(CFLAGS) \
-  -DDEFLATE_EXTRACT_ONLY \
-  -DBZIP2_EXTRACT_ONLY \
+  -DZ7_DEFLATE_EXTRACT_ONLY \
+  -DZ7_BZIP2_EXTRACT_ONLY \
 
 COMMON_OBJS = \
   $O\CRC.obj \
   $O\CrcReg.obj \
   $O\IntToString.obj \
+  $O\LzFindPrepare.obj \
   $O\NewHandler.obj \
   $O\MyString.obj \
   $O\Sha256Reg.obj \
@@ -110,6 +111,7 @@ CRYPTO_OBJS = \
   $O\RandGen.obj \
 
 C_OBJS = \
+  $O\7zStream.obj \
   $O\Alloc.obj \
   $O\Bcj2.obj \
   $O\Bcj2Enc.obj \
@@ -132,12 +134,14 @@ C_OBJS = \
   $O\Ppmd7.obj \
   $O\Ppmd7Dec.obj \
   $O\Ppmd7Enc.obj \
-  $O\Sha256.obj \
   $O\Sort.obj \
+  $O\SwapBytes.obj \
   $O\Threads.obj \
 
 !include "../../Aes.mak"
 !include "../../Crc.mak"
+!include "../../LzFindOpt.mak"
 !include "../../LzmaDec.mak"
+!include "../../Sha256.mak"
 
 !include "../../7zip.mak"

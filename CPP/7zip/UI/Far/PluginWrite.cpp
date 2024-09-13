@@ -49,7 +49,7 @@ static HRESULT SetOutProperties(IOutFolderArchive *outArchive, UInt32 method)
     */
     NCOM::CPropVariant value = (UInt32)method;
     const wchar_t *name = L"x";
-    RINOK(setProperties->SetProperties(&name, &value, 1));
+    RINOK(setProperties->SetProperties(&name, &value, 1))
   }
   return S_OK;
 }
@@ -78,21 +78,20 @@ HRESULT CPlugin::AfterUpdate(CWorkDirTempFile &tempFile, const UStringVector &pa
 */
 
 NFileOperationReturnCode::EEnum CPlugin::PutFiles(
-  struct PluginPanelItem *panelItems, int numItems,
+  struct PluginPanelItem *panelItems, unsigned numItems,
   int moveMode, int opMode)
 {
-  /*
-  if (moveMode != 0)
+  if (moveMode != 0
+      && _agent->_isHashHandler)
   {
     g_StartupInfo.ShowMessage(NMessageID::kMoveIsNotSupported);
     return NFileOperationReturnCode::kError;
   }
-  */
 
-  if (numItems == 0)
+  if (numItems <= 0)
     return NFileOperationReturnCode::kError;
 
-  if (_agent->IsThereReadOnlyArc())
+  if (_agent->IsThere_ReadOnlyArc())
   {
     g_StartupInfo.ShowMessage(NMessageID::kUpdateNotSupportedForThisArchive);
     return NFileOperationReturnCode::kError;
@@ -104,14 +103,18 @@ NFileOperationReturnCode::EEnum CPlugin::PutFiles(
   NCompression::CInfo compressionInfo;
   compressionInfo.Load();
 
-  int methodIndex = 0;
-  int i;
-  for (i = ARRAY_SIZE(g_MethodMap) - 1; i >= 0; i--)
+  unsigned methodIndex = 0;
+
+  unsigned i;
+  for (i = Z7_ARRAY_SIZE(g_MethodMap); i != 0;)
+  {
+    i--;
     if (compressionInfo.Level >= g_MethodMap[i])
     {
       methodIndex = i;
       break;
     }
+  }
 
   const int kMethodRadioIndex = 2;
   const int kModeRadioIndex = kMethodRadioIndex + 7;
@@ -141,17 +144,17 @@ NFileOperationReturnCode::EEnum CPlugin::PutFiles(
     { DI_BUTTON, 0, kYSize - 3, 0, 0, false, false, DIF_CENTERGROUP, false, NMessageID::kCancel, NULL, NULL  }
   };
   
-  const int kNumDialogItems = ARRAY_SIZE(initItems);
+  const int kNumDialogItems = Z7_ARRAY_SIZE(initItems);
   const int kOkButtonIndex = kNumDialogItems - 2;
   FarDialogItem dialogItems[kNumDialogItems];
   g_StartupInfo.InitDialogItems(initItems, dialogItems, kNumDialogItems);
-  int askCode = g_StartupInfo.ShowDialog(76, kYSize,
+  const int askCode = g_StartupInfo.ShowDialog(76, kYSize,
       kHelpTopic, dialogItems, kNumDialogItems);
   if (askCode != kOkButtonIndex)
     return NFileOperationReturnCode::kInterruptedByUser;
 
   compressionInfo.Level = g_MethodMap[0];
-  for (i = 0; i < ARRAY_SIZE(g_MethodMap); i++)
+  for (i = 0; i < Z7_ARRAY_SIZE(g_MethodMap); i++)
     if (dialogItems[kMethodRadioIndex + i].Selected)
       compressionInfo.Level = g_MethodMap[i];
 
@@ -165,7 +168,7 @@ NFileOperationReturnCode::EEnum CPlugin::PutFiles(
 
   compressionInfo.Save();
 
-  CWorkDirTempFile tempFile;;
+  CWorkDirTempFile tempFile;
   if (tempFile.CreateTempFile(m_FileName) != S_OK)
     return NFileOperationReturnCode::kError;
 
@@ -200,10 +203,10 @@ NFileOperationReturnCode::EEnum CPlugin::PutFiles(
   
   UStringVector fileNames;
   fileNames.ClearAndReserve(numItems);
-  for (i = 0; i < numItems; i++)
+  for (i = 0; i < (unsigned)numItems; i++)
     fileNames.AddInReserved(MultiByteToUnicodeString(panelItems[i].FindData.cFileName, CP_OEMCP));
   CObjArray<const wchar_t *> fileNamePointers(numItems);
-  for (i = 0; i < numItems; i++)
+  for (i = 0; i < (unsigned)numItems; i++)
     fileNamePointers[i] = fileNames[i];
 
   CMyComPtr<IOutFolderArchive> outArchive;
@@ -227,8 +230,11 @@ NFileOperationReturnCode::EEnum CPlugin::PutFiles(
   updateCallbackSpec->PasswordIsDefined = PasswordIsDefined;
   updateCallbackSpec->Password = Password;
 
-  if (SetOutProperties(outArchive, compressionInfo.Level) != S_OK)
-    return NFileOperationReturnCode::kError;
+  if (!_agent->_isHashHandler)
+  {
+    if (SetOutProperties(outArchive, compressionInfo.Level) != S_OK)
+      return NFileOperationReturnCode::kError;
+  }
 
   /*
   outArchive->SetFolder(_folder);
@@ -331,7 +337,7 @@ void CParsedPath::ParsePath(const UString &path)
       // the bug was fixed:
       curPos = path.Find((wchar_t)kDirDelimiter, 2);
       if (curPos < 0)
-        curPos = path.Len();
+        curPos = (int)path.Len();
       else
         curPos++;
     }
@@ -362,7 +368,7 @@ static void SetArcName(UString &arcName, const CArcInfoEx &arcInfo)
     if (dotPos > slashPos + 1)
       arcName.DeleteFrom(dotPos);
   }
-  arcName += '.';
+  arcName.Add_Dot();
   arcName += arcInfo.GetMainExt();
 }
 
@@ -414,9 +420,9 @@ HRESULT CompressFiles(const CObjectVector<PluginPanelItem> &pluginPanelItems)
       if (arcInfo.UpdateEnabled)
       {
         if (archiverIndex == -1)
-          archiverIndex = i;
+          archiverIndex = (int)i;
         if (MyStringCompareNoCase(arcInfo.Name, compressionInfo.ArcType) == 0)
-          archiverIndex = i;
+          archiverIndex = (int)i;
       }
     }
   }
@@ -459,29 +465,36 @@ HRESULT CompressFiles(const CObjectVector<PluginPanelItem> &pluginPanelItems)
     const int kMethodRadioIndex = kArchiveNameIndex + 2;
     const int kModeRadioIndex = kMethodRadioIndex + 7;
 
-
-    char updateAddToArchiveString[512];
+    // char updateAddToArchiveString[512];
+    AString str1;
     {
       const CArcInfoEx &arcInfo = codecs->Formats[archiverIndex];
       const AString s (UnicodeStringToMultiByte(arcInfo.Name, CP_OEMCP));
+      str1 = g_StartupInfo.GetMsgString(NMessageID::kUpdateAddToArchive);
+      str1.Replace(AString ("%s"), s);
+      /*
       sprintf(updateAddToArchiveString,
         g_StartupInfo.GetMsgString(NMessageID::kUpdateAddToArchive), (const char *)s);
+      */
     }
 
-    int methodIndex = 0;
-    int i;
-    for (i = ARRAY_SIZE(g_MethodMap) - 1; i >= 0; i--)
+    unsigned methodIndex = 0;
+    unsigned i;
+    for (i = Z7_ARRAY_SIZE(g_MethodMap); i != 0;)
+    {
+      i--;
       if (compressionInfo.Level >= g_MethodMap[i])
       {
         methodIndex = i;
         break;
       }
+    }
 
     const struct CInitDialogItem initItems[]=
     {
       { DI_DOUBLEBOX, 3, 1, 72, kYSize - 2, false, false, 0, false, NMessageID::kUpdateTitle, NULL, NULL },
 
-      { DI_TEXT, 5, 2, 0, 0, false, false, 0, false, -1, updateAddToArchiveString, NULL },
+      { DI_TEXT, 5, 2, 0, 0, false, false, 0, false, -1, str1, NULL },
       
       { DI_EDIT, 5, 3, 70, 3, true, false, DIF_HISTORY, false, -1, archiveNameA, kArchiveHistoryKeyName},
       // { DI_EDIT, 5, 3, 70, 3, true, false, 0, false, -1, arcName, NULL},
@@ -509,7 +522,7 @@ HRESULT CompressFiles(const CObjectVector<PluginPanelItem> &pluginPanelItems)
       { DI_BUTTON, 0, kYSize - 3, 0, 0, false, false, DIF_CENTERGROUP, false, NMessageID::kCancel, NULL, NULL  }
     };
 
-    const int kNumDialogItems = ARRAY_SIZE(initItems);
+    const int kNumDialogItems = Z7_ARRAY_SIZE(initItems);
     
     const int kOkButtonIndex = kNumDialogItems - 3;
     const int kSelectarchiverButtonIndex = kNumDialogItems - 2;
@@ -524,7 +537,7 @@ HRESULT CompressFiles(const CObjectVector<PluginPanelItem> &pluginPanelItems)
     MultiByteToUnicodeString2(arcName, archiveNameA, CP_OEMCP);
 
     compressionInfo.Level = g_MethodMap[0];
-    for (i = 0; i < ARRAY_SIZE(g_MethodMap); i++)
+    for (i = 0; i < Z7_ARRAY_SIZE(g_MethodMap); i++)
       if (dialogItems[kMethodRadioIndex + i].Selected)
         compressionInfo.Level = g_MethodMap[i];
 
@@ -536,7 +549,7 @@ HRESULT CompressFiles(const CObjectVector<PluginPanelItem> &pluginPanelItems)
 
     if (askCode == kSelectarchiverButtonIndex)
     {
-      CIntVector indices;
+      CUIntVector indices;
       AStringVector archiverNames;
       FOR_VECTOR (k, codecs->Formats)
       {
@@ -548,7 +561,7 @@ HRESULT CompressFiles(const CObjectVector<PluginPanelItem> &pluginPanelItems)
         }
       }
     
-      int index = g_StartupInfo.Menu(FMENU_AUTOHIGHLIGHT,
+      const int index = g_StartupInfo.Menu(FMENU_AUTOHIGHLIGHT,
           g_StartupInfo.GetMsgString(NMessageID::kUpdateSelectArchiverMenuTitle),
           NULL, archiverNames, archiverIndex);
       if (index >= 0)
@@ -561,7 +574,7 @@ HRESULT CompressFiles(const CObjectVector<PluginPanelItem> &pluginPanelItems)
           if (arcName.Len() >= prevExtensionLen &&
               MyStringCompareNoCase(arcName.RightPtr(prevExtensionLen), prevExtension) == 0)
           {
-            int pos = arcName.Len() - prevExtensionLen;
+            const unsigned pos = arcName.Len() - prevExtensionLen;
             if (pos > 2)
             {
               if (arcName[pos - 1] == '.')
@@ -570,7 +583,7 @@ HRESULT CompressFiles(const CObjectVector<PluginPanelItem> &pluginPanelItems)
           }
         }
 
-        archiverIndex = indices[index];
+        archiverIndex = (int)indices[index];
         const CArcInfoEx &arcInfo = codecs->Formats[archiverIndex];
         prevFormat = archiverIndex;
         
@@ -599,8 +612,7 @@ HRESULT CompressFiles(const CObjectVector<PluginPanelItem> &pluginPanelItems)
     return E_FAIL;
    
   CWorkDirTempFile tempFile;
-  RINOK(tempFile.CreateTempFile(fullArcName));
-
+  RINOK(tempFile.CreateTempFile(fullArcName))
   CScreenRestorer screenRestorer;
   CProgressBox progressBox;
   CProgressBox *progressBoxPointer = NULL;
@@ -627,15 +639,15 @@ HRESULT CompressFiles(const CObjectVector<PluginPanelItem> &pluginPanelItems)
     archiveHandler = agentSpec;
     // CLSID realClassID;
     CMyComBSTR archiveType;
-    RINOK(agentSpec->Open(NULL,
+    RINOK(archiveHandler->Open(NULL,
         GetUnicodeString(fullArcName, CP_OEMCP), UString(),
         // &realClassID,
         &archiveType,
-        NULL));
+        NULL))
 
     if (MyStringCompareNoCase(archiverInfoFinal.Name, (const wchar_t *)archiveType) != 0)
       throw "Type of existing archive differs from specified type";
-    HRESULT result = archiveHandler.QueryInterface(
+    const HRESULT result = archiveHandler.QueryInterface(
         IID_IOutFolderArchive, &outArchive);
     if (result != S_OK)
     {
@@ -677,7 +689,7 @@ HRESULT CompressFiles(const CObjectVector<PluginPanelItem> &pluginPanelItems)
   updateCallbackSpec->Init(/* archiveHandler, */ progressBoxPointer);
 
 
-  RINOK(SetOutProperties(outArchive, compressionInfo.Level));
+  RINOK(SetOutProperties(outArchive, compressionInfo.Level))
 
   // FStringVector requestedPaths;
   // FStringVector processedPaths;
@@ -715,7 +727,7 @@ static const char * const k_CreateFolder_History = "NewFolder"; // we use defaul
 
 HRESULT CPlugin::CreateFolder()
 {
-  if (_agent->IsThereReadOnlyArc())
+  if (_agent->IsThere_ReadOnlyArc())
   {
     g_StartupInfo.ShowMessage(NMessageID::kUpdateNotSupportedForThisArchive);
     return TRUE;
@@ -741,7 +753,7 @@ HRESULT CPlugin::CreateFolder()
       { DI_BUTTON, 0, kYSize - 3, 0, 0, false, false, DIF_CENTERGROUP, false, NMessageID::kCancel, NULL, NULL }
     };
    
-    const int kNumDialogItems = ARRAY_SIZE(initItems);
+    const int kNumDialogItems = Z7_ARRAY_SIZE(initItems);
     const int kOkButtonIndex = kNumDialogItems - 2;
 
     FarDialogItem dialogItems[kNumDialogItems];

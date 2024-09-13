@@ -1,13 +1,13 @@
 PROG = 7zG.exe
 CFLAGS = $(CFLAGS) \
-  -DLANG \
-  -DEXTERNAL_CODECS \
+  -DZ7_LANG \
+  -DZ7_EXTERNAL_CODECS \
 
 !IFDEF UNDER_CE
 LIBS = $(LIBS) ceshell.lib Commctrl.lib
 !ELSE
 LIBS = $(LIBS) comctl32.lib htmlhelp.lib comdlg32.lib gdi32.lib
-CFLAGS = $(CFLAGS) -DWIN_LONG_PATH -DSUPPORT_DEVICE_FILE -D_7ZIP_LARGE_PAGES
+CFLAGS = $(CFLAGS) -DZ7_LONG_PATH -DZ7_LARGE_PAGES -DZ7_DEVICE_FILE
 !ENDIF
 
 GUI_OBJS = \
@@ -24,6 +24,7 @@ GUI_OBJS = \
 COMMON_OBJS = \
   $O\CommandLineParser.obj \
   $O\CRC.obj \
+  $O\DynLimBuf.obj \
   $O\IntToString.obj \
   $O\Lang.obj \
   $O\ListFileUtils.obj \
@@ -55,6 +56,7 @@ WIN_OBJS = \
   $O\Shell.obj \
   $O\Synchronization.obj \
   $O\System.obj \
+  $O\SystemInfo.obj \
   $O\TimeUtils.obj \
   $O\Window.obj \
 
@@ -70,6 +72,7 @@ WIN_CTRL_OBJS = \
   $O\FilterCoder.obj \
   $O\LimitedStreams.obj \
   $O\MethodProps.obj \
+  $O\MultiOutStream.obj \
   $O\ProgressUtils.obj \
   $O\PropId.obj \
   $O\StreamObjects.obj \
@@ -101,6 +104,7 @@ UI_COMMON_OBJS = \
   $O\ZipRegistry.obj \
 
 AR_COMMON_OBJS = \
+  $O\ItemNameUtils.obj \
   $O\OutStreamWithCRC.obj \
 
 FM_OBJS = \

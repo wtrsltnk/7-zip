@@ -59,14 +59,17 @@ static const bool k_shellex_Statuses[2][4] =
 #else
 */
 
-typedef WINADVAPI LONG (APIENTRY *Func_RegDeleteKeyExW)(HKEY hKey, LPCWSTR lpSubKey, REGSAM samDesired, DWORD Reserved);
+typedef
+// WINADVAPI
+LONG (APIENTRY *Func_RegDeleteKeyExW)(HKEY hKey, LPCWSTR lpSubKey, REGSAM samDesired, DWORD Reserved);
 static Func_RegDeleteKeyExW func_RegDeleteKeyExW;
 
 static void Init_RegDeleteKeyExW()
 {
   if (!func_RegDeleteKeyExW)
-    func_RegDeleteKeyExW = (Func_RegDeleteKeyExW)
-      GetProcAddress(GetModuleHandleW(L"advapi32.dll"), "RegDeleteKeyExW");
+    func_RegDeleteKeyExW = Z7_GET_PROC_ADDRESS(
+    Func_RegDeleteKeyExW, GetModuleHandleW(L"advapi32.dll"),
+        "RegDeleteKeyExW");
 }
 
 #define INIT_REG_WOW if (wow != 0) Init_RegDeleteKeyExW();
@@ -80,12 +83,12 @@ static LONG MyRegistry_DeleteKey(HKEY parentKey, LPCTSTR name, UInt32 wow)
   
   /*
   #ifdef _WIN64
-    return RegDeleteKeyExW
+  return RegDeleteKeyExW
   #else
   */
-    if (!func_RegDeleteKeyExW)
-      return E_NOTIMPL;
-    return func_RegDeleteKeyExW
+  if (!func_RegDeleteKeyExW)
+    return E_NOTIMPL;
+  return func_RegDeleteKeyExW
   // #endif
       (parentKey, GetUnicodeString(name), wow, 0);
 }
@@ -203,7 +206,7 @@ LONG SetContextMenuHandler(bool setMode, const UString &path, UInt32 wow)
   if (setMode)
   for (unsigned i = 0; i < 2; i++)
   {
-    for (unsigned k = 0; k < ARRAY_SIZE(k_shellex_Prefixes); k++)
+    for (unsigned k = 0; k < Z7_ARRAY_SIZE(k_shellex_Prefixes); k++)
     {
       CSysString s (k_shellex_Prefixes[k]);
       s += (i == 0 ? k_KeyPostfix_ContextMenu : k_KeyPostfix_DragDrop);
