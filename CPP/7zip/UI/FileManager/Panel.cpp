@@ -48,7 +48,6 @@ static DWORD kStyles[4] = { LVS_ICON, LVS_SMALLICON, LVS_LIST, LVS_REPORT };
 // static const int kCreateFolderID = 101;
 
 extern HINSTANCE g_hInstance;
-extern DWORD g_ComCtl32Version;
 
 void CPanel::Release()
 {
@@ -421,8 +420,8 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
   _listView._panel = this;
   _listView.SetWindowProc();
 
-  _listView.SetImageList(GetSysImageList(true), LVSIL_SMALL);
-  _listView.SetImageList(GetSysImageList(false), LVSIL_NORMAL);
+  _listView.SetImageList(Shell_Get_SysImageList_smallIcons(true), LVSIL_SMALL);
+  _listView.SetImageList(Shell_Get_SysImageList_smallIcons(false), LVSIL_NORMAL);
 
   // _exStyle |= LVS_EX_HEADERDRAGDROP;
   // DWORD extendedStyle = _listView.GetExtendedListViewStyle();
@@ -449,9 +448,9 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
     // {VIEW_NEWFOLDER, kCreateFolderID, TBSTATE_ENABLED, BTNS_BUTTON, 0L, 0},
   };
 
-  #ifndef UNDER_CE
+#ifdef Z7_USE_DYN_ComCtl32Version
   if (g_ComCtl32Version >= MAKELONG(71, 4))
-  #endif
+#endif
   {
     icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
     icex.dwICC  = ICC_COOL_CLASSES | ICC_BAR_CLASSES;
@@ -507,17 +506,15 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
       #endif
       , NULL,
     WS_BORDER | WS_VISIBLE |WS_CHILD | CBS_DROPDOWN | CBS_AUTOHSCROLL,
-      0, 0, 100, 520,
+      0, 0, 100, 620,
       (_headerReBar ? _headerToolBar : (HWND)*this),
       (HMENU)(UINT_PTR)(_comboBoxID),
       g_hInstance, NULL);
-  #ifndef UNDER_CE
+
+#ifndef UNDER_CE
   _headerComboBox.SetUnicodeFormat(true);
-
-  _headerComboBox.SetImageList(GetSysImageList(true));
-
+  _headerComboBox.SetImageList(Shell_Get_SysImageList_smallIcons(true));
   _headerComboBox.SetExtendedStyle(CBES_EX_PATHWORDBREAKPROC, CBES_EX_PATHWORDBREAKPROC);
-
   /*
   _headerComboBox.SetUserDataLongPtr(LONG_PTR(&_headerComboBox));
   _headerComboBox._panel = this;
@@ -526,9 +523,7 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
       LONG_PTR(ComboBoxSubclassProc));
   */
   _comboBoxEdit.Attach(_headerComboBox.GetEditControl());
-
   // _comboBoxEdit.SendMessage(CCM_SETUNICODEFORMAT, (WPARAM)(BOOL)TRUE, 0);
-
   _comboBoxEdit.SetUserDataLongPtr(LONG_PTR(&_comboBoxEdit));
   _comboBoxEdit._panel = this;
    #ifndef _UNICODE
@@ -539,8 +534,7 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
    #endif
      _comboBoxEdit._origWindowProc =
       (WNDPROC)_comboBoxEdit.SetLongPtr(GWLP_WNDPROC, LONG_PTR(ComboBoxEditSubclassProc));
-
-  #endif
+#endif
 
   if (_headerReBar)
   {
@@ -982,8 +976,8 @@ static UString GetSubFolderNameForExtract2(const UString &arcPath)
 
 int CPanel::FindDir_InOperatedList(const CRecordVector<UInt32> &operatedIndices) const
 {
-  const bool *isDirVector = &_isDirVector.Front();
-  const UInt32 *indices = &operatedIndices.Front();
+  const bool *isDirVector = _isDirVector.ConstData();
+  const UInt32 *indices = operatedIndices.ConstData();
   const unsigned numItems = operatedIndices.Size();
   for (unsigned i = 0; i < numItems; i++)
     if (isDirVector[indices[i]])
@@ -997,7 +991,7 @@ void CPanel::GetFilePaths(const CRecordVector<UInt32> &operatedIndices, UStringV
   paths.ClearAndReserve(operatedIndices.Size());
   UString path = GetFsPath();
   const unsigned prefixLen = path.Len();
-  const UInt32 *indices = &operatedIndices.Front();
+  const UInt32 *indices = operatedIndices.ConstData();
   const unsigned numItems = operatedIndices.Size();
   // for (unsigned y = 0; y < 10000; y++, paths.Clear())
   for (unsigned i = 0; i < numItems; i++)
@@ -1030,7 +1024,7 @@ void CPanel::ExtractArchives()
   if (indices.Size() == 1)
     outFolder += GetSubFolderNameForExtract2(GetItemRelPath(indices[0]));
   else
-    outFolder += '*';
+    outFolder.Add_Char('*');
   outFolder.Add_PathSepar();
   
   CContextMenuInfo ci;
